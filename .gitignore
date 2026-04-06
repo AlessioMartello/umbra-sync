@@ -11,3 +11,6 @@ wheels/
 
 # local development
 .env
+
+# temp data
+tmp*
