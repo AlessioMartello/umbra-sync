@@ -3,6 +3,7 @@ import msal
 import datetime
 
 AUTHORITY = "https://login.microsoftonline.com/consumers"
+NUM_EMAILs_TO_RETRIEVE_PER_REQUEST = 50
 
 class OutlookClient:
     def __init__(self, client_id: str, refresh_token: str):
@@ -39,15 +40,43 @@ class OutlookClient:
         response = await self._session.get(url, headers=self._headers(), params=params)
         response.raise_for_status()
         return response.json()
+    
+    async def _paginate(self, all_emails: list, next_link:str = None) -> list:
+        while next_link:
+            data = await self._get(next_link) # No params needed for nextLink
+            all_emails.extend(data.get("value", []))
+            next_link = data.get("@odata.nextLink")
+        return all_emails
 
-    async def get_inbox_items(self):
+    async def get_inbox_items(self, since: datetime = None) -> list:
         """Retrun Inbox emails"""
+        all_inbox_emails = []
         params = {
-        "$orderby": "receivedDateTime desc",
+        # "$orderby": "receivedDateTime desc",
         "$select": "subject,from,receivedDateTime,body,inferenceClassification", 
-        "$top": 100
+        "$top": NUM_EMAILs_TO_RETRIEVE_PER_REQUEST
         } 
-        return await self._get("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages", params=params)
 
-    def get_sent_items(self):
-        ...
+        if since:
+            params["$filter"] = f"receivedDateTime ge {since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+
+        data = await self._get("https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages", params=params)
+        all_inbox_emails.extend(data.get("value", []))
+
+        next_link = data.get("@odata.nextLink")
+        return await self._paginate(all_inbox_emails, next_link)
+
+    async def get_sent_items(self) -> list:
+        """Returns Sent emais"""
+        all_sent_emails =[]
+        params = {
+        "$select": "toRecipients", 
+        "$top": NUM_EMAILs_TO_RETRIEVE_PER_REQUEST
+        }
+
+        data = await self._get("https://graph.microsoft.com/v1.0/me/mailFolders/sentItems/messages", params=params)
+        all_sent_emails.extend(data.get("value", []))
+
+        next_link = data.get("@odata.nextLink")
+        return await self._paginate(all_sent_emails, next_link)
+    

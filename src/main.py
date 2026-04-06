@@ -1,7 +1,13 @@
 from utils.outlk.client import OutlookClient
+from utils.outlk import parser
 from dotenv import load_dotenv
 import os
 import asyncio
+
+from datetime import datetime, timedelta, timezone
+
+now = datetime.now(timezone.utc)
+one_year_ago = now - timedelta(days=20)
 
 load_dotenv()
 
@@ -10,8 +16,16 @@ REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 
 async def main():
     async with OutlookClient(client_id=CLIENT_ID, refresh_token=REFRESH_TOKEN) as outlook:
-        res = await outlook.get_inbox_items()
-        print(res)
+        inbox, sent = await asyncio.gather(
+            outlook.get_inbox_items(since=one_year_ago),
+            outlook.get_sent_items(),
+        )
 
+    trusted_email_addresses = parser.get_sent_recipient_emails(sent)
+    filtered_inbox = parser.filter_inbox(inbox, trusted_email_addresses)
+
+    for msg in filtered_inbox:
+        print(f"MATCH: {msg.get('subject')} from {msg.get('from', {}).get('emailAddress', {}).get('name')}")
+    
 if __name__ == "__main__":
     asyncio.run(main())
