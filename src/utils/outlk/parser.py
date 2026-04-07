@@ -24,3 +24,13 @@ def get_sent_recipient_emails(sent_data:list) -> set[str]:
             if email:
                 known_emails.add(email)
     return known_emails
+
+def _sort_inbox(inbox_data:list[dict]):
+    """Sorts the emails by data received"""
+    return sorted(inbox_data, key = lambda x: x["receivedDateTime"])
+
+def deduplicate_inbox(all_emails:list[dict]):
+    "Returns the latest email only from each sender"
+    sorted_emails = _sort_inbox(all_emails)
+    return list({msg.get('from', {}).get('emailAddress', {}).get('address'): msg for msg in sorted_emails}.values())
+
