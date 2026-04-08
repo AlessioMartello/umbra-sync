@@ -1,9 +1,10 @@
-from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
+from pydantic import BaseModel, EmailStr, Field
+
+
 class Contact(BaseModel):
-    email: EmailStr
+    email_address: EmailStr
     name: str = Field(..., min_length=1)
     phone: Optional[str] = None
-    address: Optional[str] = None
-
+    linkedin_url: Optional[str] = None
