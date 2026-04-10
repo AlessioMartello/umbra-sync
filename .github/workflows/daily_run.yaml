@@ -34,7 +34,7 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
           MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
           MONDAY_BOARD_ID: ${{ secrets.MONDAY_BOARD_ID }}
-        run: uv run main.py
+        run: uv run src/main.py
 
       - name: Commit watermark
         if: success()
