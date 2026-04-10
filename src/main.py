@@ -21,6 +21,7 @@ MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
 
 debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}
 
+
 async def main():
     logger.info("Script commencing")
     logger.info("Getting latest watermark")
@@ -40,15 +41,15 @@ async def main():
 
         if len(deduplicated_inbox) > 0:
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
-                contacts = await mday.get_existing_contacts()
+                mday_contacts = await mday.get_existing_contacts()
 
                 for email in deduplicated_inbox:
                     try:
                         # Any error in ANY of these steps triggers the 'except' block
-                        contact = parser.parse_email_to_contact(email)
-                                                
+                        outlook_contact = parser.parse_email_to_contact(email)
+
                         # await mday.post_new_contact(contact)
-                        logger.info(f"Processed: {contact.email_address}")
+                        logger.info(f"Processed: {outlook_contact.linkedin_url} - {outlook_contact.email_address} - {outlook_contact.name}")
 
                     except Exception as e:
                         # This ensures one bad email doesn't crash the whole script
@@ -58,14 +59,13 @@ async def main():
         else:
             logger.info("No new inbox data to process. exiting")
 
-        # get linkedin
         # Get the numbers
         # Get the name
 
-        # if email address in monday contact and missing data, enrich
         # if email address not in monday contacts, add
+        # if email address in monday contact and missing data, enrich
         # if email in monday contact and not missing data, no nothing
-        
+
         update_watermark(debug)
     except Exception as e:
         logger.exception(f"Script return an error: {e}")

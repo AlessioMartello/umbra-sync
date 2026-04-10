@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 WATERMARK_PATH = BASE_DIR / ".state" / "last_run.json"
-DEBUG_LOOKBACK_DAYS =20
+DEBUG_LOOKBACK_DAYS = 10
 
 
 def get_watermark(debug: bool) -> datetime:
@@ -21,14 +21,16 @@ def get_watermark(debug: bool) -> datetime:
                 logger.info(f"Latest watermark is: {last_run}")
                 return datetime.fromisoformat(last_run)
             except (json.JSONDecodeError, KeyError, ValueError) as e:
-                logger.warning(f"Watermark file corrupt or invalid: {e} — defaulting to 365 days ago")
+                logger.warning(
+                    f"Watermark file corrupt or invalid: {e} — defaulting to 365 days ago"
+                )
                 return datetime.now(timezone.utc) - timedelta(days=365)
         else:
             logger.warning("No watermark found — defaulting to 365 days ago")
             return datetime.now(timezone.utc) - timedelta(days=365)
     else:
-        logger.info(f"Debug mode — looking back {DEBUG_LOOKBACK_DAYS } days")
-        return datetime.now(timezone.utc) - timedelta(days=DEBUG_LOOKBACK_DAYS )
+        logger.info(f"Debug mode — looking back {DEBUG_LOOKBACK_DAYS} days")
+        return datetime.now(timezone.utc) - timedelta(days=DEBUG_LOOKBACK_DAYS)
 
 
 def update_watermark(debug) -> None:
