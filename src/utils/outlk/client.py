@@ -17,7 +17,7 @@ logger = get_logger(__name__)
 
 
 AUTHORITY = "https://login.microsoftonline.com/consumers"
-NUM_EMAILs_TO_RETRIEVE_PER_REQUEST = 50
+NUM_EMAILS_TO_RETRIEVE_PER_REQUEST = 50
 
 
 class OutlookClient:
@@ -26,7 +26,6 @@ class OutlookClient:
         # self.mailbox = mailbox
         self._session = httpx.AsyncClient()
         self._token: str | None = None
-        # self._token_expiry: datetime | None = None
         app = msal.PublicClientApplication(client_id, authority=AUTHORITY)
         self._token_response = app.acquire_token_by_refresh_token(
             refresh_token, scopes=["https://graph.microsoft.com/Mail.Read"]
@@ -83,7 +82,7 @@ class OutlookClient:
         all_inbox_emails = []
         params = {
             "$select": "subject,from,receivedDateTime,body,inferenceClassification",
-            "$top": NUM_EMAILs_TO_RETRIEVE_PER_REQUEST,
+            "$top": NUM_EMAILS_TO_RETRIEVE_PER_REQUEST,
         }
 
         if since:
@@ -106,7 +105,7 @@ class OutlookClient:
     async def get_sent_items(self) -> list:
         """Returns Sent emais"""
         all_sent_emails = []
-        params = {"$select": "toRecipients", "$top": NUM_EMAILs_TO_RETRIEVE_PER_REQUEST}
+        params = {"$select": "toRecipients", "$top": NUM_EMAILS_TO_RETRIEVE_PER_REQUEST}
 
         logger.info("Fetching Outlook Sent items")
         data = await self._get(

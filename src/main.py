@@ -12,9 +12,6 @@ from utils.outlk import parser
 
 logger = get_logger(__name__)
 
-now = datetime.now(timezone.utc)
-one_year_ago = now - timedelta(days=20)
-
 load_dotenv()
 
 CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
@@ -22,8 +19,7 @@ REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 API_KEY = os.getenv("MONDAY_API_KEY")
 MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
 
-debug = os.getenv("DEBUG", False)
-
+debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}
 
 async def main():
     logger.info("Script commencing")
@@ -44,13 +40,20 @@ async def main():
 
         if len(deduplicated_inbox) > 0:
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
-                contacts = await asyncio.gather(mday.get_existing_contacts())
+                contacts = await mday.get_existing_contacts()
 
                 for email in deduplicated_inbox:
-                    contact = parser.parse_email_to_contact(email)
-                    # await mday.post_new_contact(contact)
+                    try:
+                        # Any error in ANY of these steps triggers the 'except' block
+                        contact = parser.parse_email_to_contact(email)
+                                                
+                        # await mday.post_new_contact(contact)
+                        logger.info(f"Processed: {contact.email_address}")
 
-            update_watermark(debug)
+                    except Exception as e:
+                        # This ensures one bad email doesn't crash the whole script
+                        logger.warning(f"Skipping email due to processing error: {e}")
+                        continue
 
         else:
             logger.info("No new inbox data to process. exiting")
@@ -62,10 +65,11 @@ async def main():
         # if email address in monday contact and missing data, enrich
         # if email address not in monday contacts, add
         # if email in monday contact and not missing data, no nothing
-
+        
+        update_watermark(debug)
     except Exception as e:
-        logger.info(f"Script return an error: {e}")
-        return None
+        logger.exception(f"Script return an error: {e}")
+        raise
 
     logger.info("Script completed with no errors")
 

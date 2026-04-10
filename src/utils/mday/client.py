@@ -44,9 +44,9 @@ class MondayClient:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         before_sleep=before_sleep_log(logger, logging.WARNING),
     )
-    async def _post(self, query: str, vars: dict = None) -> dict:
+    async def _post(self, query: str, mday_vars: dict = None) -> dict:
         """Post to Monday API"""
-        data = {"query": query, "variables": vars or {}}
+        data = {"query": query, "variables": mday_vars or {}}
         response = await self._session.post(
             MONDAY_URL, json=data, headers=self._headers
         )
@@ -96,7 +96,7 @@ class MondayClient:
             % self.board_id
         )
 
-        vars = {
+        mday_vars = {
             "name": contact.name,
             "values": json.dumps(
                 {
@@ -110,4 +110,4 @@ class MondayClient:
             ),
         }
         logger.info(f"Posting {contact.email_address} to Monday.com")
-        return await self._post(query, vars=vars)
+        return await self._post(query, mday_vars=mday_vars)
