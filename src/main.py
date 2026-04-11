@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
-from utils.mday.client import MondayClient
+from clients.mday import MondayClient
 from utils.logger import get_logger
 from utils.watermark import get_watermark, update_watermark
-from utils.outlk.client import OutlookClient
-from utils.outlk import parser
+from clients.outlk import OutlookClient
+from utils import transforms
 
 logger = get_logger(__name__)
 
@@ -35,9 +35,9 @@ async def main():
                 outlook.get_sent_items(),
             )
 
-        trusted_email_addresses = parser.get_sent_recipient_emails(sent)
-        filtered_inbox = parser.filter_inbox(inbox, trusted_email_addresses)
-        deduplicated_inbox = parser.deduplicate_inbox(filtered_inbox)
+        trusted_email_addresses = transforms.get_sent_recipient_emails(sent)
+        filtered_inbox = transforms.filter_inbox(inbox, trusted_email_addresses)
+        deduplicated_inbox = transforms.deduplicate_inbox(filtered_inbox)
 
         if len(deduplicated_inbox) > 0:
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
@@ -45,11 +45,12 @@ async def main():
 
                 for email in deduplicated_inbox:
                     try:
-                        # Any error in ANY of these steps triggers the 'except' block
-                        outlook_contact = parser.parse_email_to_contact(email)
+                        outlook_contact = transforms.parse_email_to_contact(email)
 
                         # await mday.post_new_contact(contact)
-                        logger.info(f"Processed: {outlook_contact.linkedin_url} - {outlook_contact.email_address} - {outlook_contact.name}")
+                        logger.info(
+                            f"Processed: {outlook_contact.linkedin_url} - {outlook_contact.email_address} - {outlook_contact.name}"
+                        )
 
                     except Exception as e:
                         # This ensures one bad email doesn't crash the whole script

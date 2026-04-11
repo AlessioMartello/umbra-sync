@@ -17,9 +17,7 @@ def filter_inbox(inbox_data: list, trusted_recipients: set[str]) -> list[dict]:
     )
     logger.info(f"Before filter: {len(inbox_data)} emails")
     for msg in inbox_data:
-        sender_email = (
-            msg.get("from", {}).get("emailAddress", {}).get("address", "").strip()
-        )
+        sender_email = _get_email_address(msg)
 
         if sender_email in trusted_recipients:
             filtered_inbox.append(msg)
@@ -71,9 +69,7 @@ def deduplicate_inbox(inbox_data: list[dict]) -> list[dict]:
     deduplicated_dict = {}
 
     for msg in sorted_emails:
-        sender_email = (
-            msg.get("from", {}).get("emailAddress", {}).get("address", "").strip()
-        )
+        sender_email = _get_email_address(msg)
         if sender_email:
             deduplicated_dict[sender_email] = msg
         else:
@@ -91,23 +87,28 @@ def parse_email_to_contact(email: dict) -> Contact:
     phone: str = None
     linkedin_url: str = None
 
-    sender = email.get("from", {}).get("emailAddress", {})
-    email_address = sender.get("address", "").strip()
+    email_address = _get_email_address(email)
 
     if not email_address:
         raise ValueError("Email has no mandatory sender address")
-       
-    name = sender.get("name", "").strip()
+
+    name = _get_name(email) or email_address.split("@")[0]
     linkedin_url = _look_for_linkedin_address(_parse_email_body(email))
 
     return Contact(email_address=email_address, name=name, linkedin_url=linkedin_url)
 
 
 def _parse_email_body(email: dict) -> str:
-    """Reads HTML body and outputs as a string"""
+    """Reads HTML body and outputs as a string. Don't discard the href from anchor tags as LinkedIn URLs can be hidden inside them"""
     html_body = email.get("body", {}).get("content", "")
     soup = BeautifulSoup(html_body, "html.parser")
-    text = soup.get_text(separator="\n")
+
+    for tag in soup.find_all("a", href=True):
+        href = tag["href"]
+        tag.append(f" {href} ")
+
+    text = soup.get_text(separator=" ")
+    text = " ".join(text.split())
     logger.debug(
         f"Parsed email body to text: {text[:100]}..."
     )  # Log the first 100 characters
@@ -115,11 +116,20 @@ def _parse_email_body(email: dict) -> str:
 
 
 def _look_for_linkedin_address(email_body: str) -> str:
-    pattern = r'https?://(?:[\w]+\.)?linkedin\.com/in/[\w\-\?=/]+[^\s\.,!?;:]'
-    match = re.search(pattern, email_body, re.IGNORECASE)
-    
+    email_body = email_body.replace("<", " ").replace(">", " ")
+    pattern = r"""
+        (?:https?://)?          # optional protocol
+        (?:www\.)?              # optional www only (avoids matching fakelinkedin.com)
+        (?<![\w-])                  # no word char/hyphen directly before (blocks notlinkedin)
+        linkedin\.com
+        /in/
+        [\w\-\.%]+             # profile slug
+        (?:[/?][\w\-\.?=&%/]*)?    # optional query string or trailing path
+    """
+    match = re.search(pattern, email_body, re.IGNORECASE | re.VERBOSE)
+
     if match:
-        linkedin_url = match.group(0)
+        linkedin_url = match.group(0).strip().rstrip(".,!?;:/")
         logger.debug(f"Found LinkedIn URL: {linkedin_url}")
         return linkedin_url
     return ""
@@ -135,3 +145,11 @@ def _check_set(data: list) -> None:
     if not isinstance(data, set):
         logger.error(f"Expected data to be a set, got {type(data)}")
         raise ValueError("Invalid data format")
+
+def _get_email_address(email: dict) -> str:
+    """Extracts the sender's email address from the email dict"""
+    return email.get("from", {}).get("emailAddress", {}).get("address", "").strip()
+
+def _get_name(email: dict) -> str:
+    """Extracts the sender's name from the email dict"""
+    return email.get("from", {}).get("emailAddress", {}).get("name", "").strip()

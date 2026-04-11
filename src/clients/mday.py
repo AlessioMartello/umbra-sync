@@ -1,17 +1,10 @@
 import json
-import logging
 
 import httpx
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    before_sleep_log,
-    retry_if_exception_type,
-)
 
 from utils.data_models import Contact
 from utils.logger import get_logger
+from utils.retry_strategy import api_retry_strategy
 
 logger = get_logger(__name__)
 
@@ -31,19 +24,7 @@ class MondayClient:
     async def __aexit__(self, *args):
         await self._session.aclose()
 
-    @retry(
-        retry=retry_if_exception_type(
-            (
-                httpx.HTTPStatusError,  # 429, 500, 502, 503 etc
-                httpx.ConnectError,  # DNS failure, connection refused
-                httpx.TimeoutException,  # request timed out
-                httpx.ReadError,  # connection reset mid-response
-            )
-        ),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-    )
+    @api_retry_strategy
     async def _post(self, query: str, mday_vars: dict = None) -> dict:
         """Post to Monday API"""
         data = {"query": query, "variables": mday_vars or {}}

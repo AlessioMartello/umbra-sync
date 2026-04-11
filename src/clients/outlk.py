@@ -1,16 +1,9 @@
 import datetime
-import logging
 
 import httpx
 import msal
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    before_sleep_log,
-    retry_if_exception_type,
-)
 
+from utils.retry_strategy import api_retry_strategy
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -24,7 +17,7 @@ class OutlookClient:
     def __init__(self, client_id: str, refresh_token: str):
         logger.info("Initialising Outlook object")
         # self.mailbox = mailbox
-        self._session = httpx.AsyncClient()
+        self._session = httpx.AsyncClient(timeout=httpx.Timeout(30.0))
         self._token: str | None = None
         app = msal.PublicClientApplication(client_id, authority=AUTHORITY)
         self._token_response = app.acquire_token_by_refresh_token(
@@ -50,19 +43,7 @@ class OutlookClient:
         """Return API call headers"""
         return {"Authorization": f"Bearer {self._get_token()}"}
 
-    @retry(
-        retry=retry_if_exception_type(
-            (
-                httpx.HTTPStatusError,  # 429, 500, 502, 503 etc
-                httpx.ConnectError,  # DNS failure, connection refused
-                httpx.TimeoutException,  # request timed out
-                httpx.ReadError,  # connection reset mid-response
-            )
-        ),
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-    )
+    @api_retry_strategy
     async def _get(self, url: str, params: dict = None) -> dict:
         """Make GET request to Outlook API"""
         response = await self._session.get(url, headers=self._headers(), params=params)
