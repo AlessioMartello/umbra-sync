@@ -43,10 +43,10 @@ def get_sent_recipient_emails(sent_data: list) -> set[str]:
         # Loop through EVERY person in the 'To' line
         for recipient in recipients:
             email = recipient.get("emailAddress", {}).get("address", "").strip()
-            if email:
+            if email and not _is_junk(email):
                 known_emails.add(email)
             else:
-                logger.warning(f"Skipping sent item {msg}")
+                logger.debug(f"Skipping sent item {email}")
 
     logger.info(f"Obtained {len(known_emails)} trusted email addresses")
 
@@ -146,10 +146,23 @@ def _check_set(data: list) -> None:
         logger.error(f"Expected data to be a set, got {type(data)}")
         raise ValueError("Invalid data format")
 
+
 def _get_email_address(email: dict) -> str:
     """Extracts the sender's email address from the email dict"""
     return email.get("from", {}).get("emailAddress", {}).get("address", "").strip()
 
+
 def _get_name(email: dict) -> str:
     """Extracts the sender's name from the email dict"""
     return email.get("from", {}).get("emailAddress", {}).get("name", "").strip()
+
+
+def _is_junk(email: str) -> bool:
+    """Leniant check if the email is from a junk sender"""
+    JUNK_PATTERN = r"unsub|subscribe|bounce|noreply|no-reply|donotreply"
+
+    if len(email) > 40:
+        return True
+    if re.search(JUNK_PATTERN, email, re.IGNORECASE):
+        return True
+    return False

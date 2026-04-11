@@ -1,5 +1,10 @@
 import pytest
-from utils.transforms import _look_for_linkedin_address, _parse_email_body, _get_email_address
+from utils.transforms import (
+    _look_for_linkedin_address,
+    _parse_email_body,
+    _get_email_address,
+    _is_junk,
+)
 
 
 @pytest.mark.parametrize(
@@ -126,8 +131,14 @@ def test_parse_email_body(email, expected):
 @pytest.mark.parametrize(
     "email, expected",
     [
-        ({"from": {"emailAddress": {"address": "john.doe@example.com"}}}, "john.doe@example.com"),
-        ({"from": {"emailAddress": {"address": " jane.smith@example.com "}}}, "jane.smith@example.com"),
+        (
+            {"from": {"emailAddress": {"address": "john.doe@example.com"}}},
+            "john.doe@example.com",
+        ),
+        (
+            {"from": {"emailAddress": {"address": " jane.smith@example.com "}}},
+            "jane.smith@example.com",
+        ),
         ({"from": {"emailAddress": {}}}, ""),
         ({"from": {}}, ""),
         ({}, ""),
@@ -135,4 +146,21 @@ def test_parse_email_body(email, expected):
 )
 def test_email_extraction(email, expected):
     result = _get_email_address(email)
+    assert result == expected, f"Expected '{expected}' but got '{result}'"
+
+
+@pytest.mark.parametrize(
+    "email_address, expected",
+    [
+        ("subscribe@example.com", True),
+        ("thisisatestemailaddressismorethanfortycharacterslong@example.co.uk", True),
+        ("john.doe@example.com", False),
+        ("noreply@example.com", True),
+        ("unsubscribe@example.com", True),
+        ("bounce@example.com", True),
+        ("", False),
+    ],
+)
+def test_is_junk(email_address, expected):
+    result = _is_junk(email_address)
     assert result == expected, f"Expected '{expected}' but got '{result}'"
