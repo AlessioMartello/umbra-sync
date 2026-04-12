@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 WATERMARK_PATH = BASE_DIR / ".state" / "last_run.json"
-DEBUG_LOOKBACK_DAYS = 365 * 10
+DEBUG_LOOKBACK_DAYS = 100
 
 
 def get_watermark(debug: bool) -> datetime:

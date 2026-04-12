@@ -1,6 +1,5 @@
 import os
 import asyncio
-from datetime import datetime, timedelta, timezone
 
 from dotenv import load_dotenv
 
@@ -18,6 +17,8 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
 REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 API_KEY = os.getenv("MONDAY_API_KEY")
 MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
+
+MONDAY_FIELDS_TO_CHECK = ["name", "phone", "linkedin_url"]
 
 debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}
 
@@ -41,31 +42,55 @@ async def main():
 
         if len(deduplicated_inbox) > 0:
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
+                to_create, to_update, skipped = [], [], []
                 mday_contacts = await mday.get_existing_contacts()
 
                 for email in deduplicated_inbox:
                     try:
                         outlook_contact = transforms.parse_email_to_contact(email)
 
-                        # await mday.post_new_contact(contact)
-                        logger.info(
-                            f"Processed: {outlook_contact.linkedin_url} - {outlook_contact.email_address} - {outlook_contact.name}"
+                        # Matching logic
+                        existing_mday_contact = mday_contacts.get(
+                            outlook_contact.email_address, None
                         )
+
+                        if not existing_mday_contact:
+                            to_create.append(outlook_contact)
+                            continue
+
+                        missing_fields = {
+                            field: getattr(outlook_contact, field)
+                            for field in MONDAY_FIELDS_TO_CHECK
+                            if getattr(outlook_contact, field)
+                            and not getattr(existing_mday_contact, field)
+                        }
+
+                        if missing_fields:
+                            to_update.append(
+                                (existing_mday_contact.monday_id, missing_fields)
+                            )
+                        else:
+                            skipped.append(outlook_contact)
 
                     except Exception as e:
                         # This ensures one bad email doesn't crash the whole script
                         logger.warning(f"Skipping email due to processing error: {e}")
                         continue
 
+                # Write
+                for contact in to_create:
+                    await mday.post_new_contact(contact)
+
+                for monday_id, fields in to_update:
+                    await mday.update_contact(monday_id, fields)
+
+                logger.info(
+                    f"sync_complete. Created: {len(to_create)}, Updated: {len(to_update)}, Skipped: {len(skipped)}"
+                )
         else:
             logger.info("No new inbox data to process. exiting")
 
         # Get the numbers
-        # Get the name
-
-        # if email address not in monday contacts, add
-        # if email address in monday contact and missing data, enrich
-        # if email in monday contact and not missing data, no nothing
 
         update_watermark(debug)
     except Exception as e:

@@ -81,19 +81,20 @@ class MondayClient:
         return all_items
 
     @staticmethod
-    def _build_contact_lookup(items: list[dict]) -> dict[str, dict]:
+    def _build_contact_lookup(items: list[dict]) -> dict[str, Contact]:
         """Build email-keyed lookup dict from raw Monday items."""
         contacts = {}
         for item in items:
             cols = {col["id"]: col["text"] for col in item["column_values"]}
             email = cols.get("email")
             if email:
-                contacts[email] = {
-                    "id": item["id"],
-                    "name": item["name"],
-                    "phone": cols.get("phone"),
-                    "linkedin_url": cols.get("linkedin"),
-                }
+                contacts[email] = Contact(
+                    email_address=email,
+                    name=item["name"],
+                    phone=cols.get("phone"),
+                    linkedin_url=cols.get("linkedin"),
+                    monday_id=item["id"],
+                )
         return contacts
 
     async def post_new_contact(self, contact: Contact):
@@ -128,3 +129,24 @@ class MondayClient:
         }
         logger.info(f"Posting {contact.email_address} to Monday.com")
         return await self._post(query, mday_vars=mday_vars)
+
+    async def update_contact(self, monday_id: str, fields: dict) -> None:
+        """Update existing Monday contact, matching on ID"""
+
+        query = """
+        mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
+            change_multiple_column_values(
+                board_id: $boardId,
+                item_id: $itemId,
+                column_values: $columnValues
+            ) { id }
+        }
+        """
+        await self._post(
+            query,
+            {
+                "boardId": self.board_id,
+                "itemId": monday_id,
+                "columnValues": json.dumps(fields),
+            },
+        )
