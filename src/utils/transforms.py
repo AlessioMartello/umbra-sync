@@ -85,7 +85,7 @@ def parse_email_to_contact(email: dict) -> Contact:
     email_address: str
     name: str = None
     phone: str = None
-    linkedin_url: str = None
+    linkedin: str = None
 
     email_address = _get_email_address(email)
 
@@ -93,9 +93,9 @@ def parse_email_to_contact(email: dict) -> Contact:
         raise ValueError("Email has no mandatory sender address")
 
     name = _get_name(email) or email_address.split("@")[0]
-    linkedin_url = _look_for_linkedin_address(_parse_email_body(email))
+    linkedin = _look_for_linkedin_address(_parse_email_body(email))
 
-    return Contact(email_address=email_address, name=name, linkedin_url=linkedin_url)
+    return Contact(email_address=email_address, name=name, linkedin=linkedin)
 
 
 def _parse_email_body(email: dict) -> str:
@@ -129,9 +129,9 @@ def _look_for_linkedin_address(email_body: str) -> str:
     match = re.search(pattern, email_body, re.IGNORECASE | re.VERBOSE)
 
     if match:
-        linkedin_url = match.group(0).strip().rstrip(".,!?;:/")
-        logger.debug(f"Found LinkedIn URL: {linkedin_url}")
-        return linkedin_url
+        linkedin = match.group(0).strip().rstrip(".,!?;:/")
+        logger.debug(f"Found LinkedIn URL: {linkedin}")
+        return linkedin
     return ""
 
 

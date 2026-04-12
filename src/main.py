@@ -18,7 +18,7 @@ REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 API_KEY = os.getenv("MONDAY_API_KEY")
 MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
 
-MONDAY_FIELDS_TO_CHECK = ["name", "phone", "linkedin_url"]
+MONDAY_FIELDS_TO_CHECK = ["name", "phone", "linkedin"]
 
 debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}
 
@@ -49,7 +49,7 @@ async def main():
                     try:
                         outlook_contact = transforms.parse_email_to_contact(email)
 
-                        # Matching logic
+                        # Matching logic on email
                         existing_mday_contact = mday_contacts.get(
                             outlook_contact.email_address, None
                         )

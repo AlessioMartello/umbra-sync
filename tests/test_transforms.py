@@ -61,8 +61,8 @@ from utils.transforms import (
 )
 def test_linkedin_parsing(input, expected):
     """Tests many permutations. Core functionality must be robust."""
-    linkedin_url = _look_for_linkedin_address(input)
-    assert linkedin_url == expected, f"Expected {expected} but got {linkedin_url}"
+    linkedin = _look_for_linkedin_address(input)
+    assert linkedin == expected, f"Expected {expected} but got {linkedin}"
 
 
 @pytest.mark.parametrize(

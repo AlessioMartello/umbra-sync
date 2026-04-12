@@ -12,8 +12,6 @@ MONDAY_URL = "https://api.monday.com/v2"
 
 
 class MondayClient:
-    COLUMN_IDS = ["email", "phone", "linkedin"]
-
     def __init__(self, api_key: str, board_id: str):
         logger.info("Initialising Monday object")
         self.board_id = board_id
@@ -51,7 +49,7 @@ class MondayClient:
                         items {
                             id
                             name
-                            column_values(ids: ["email", "phone", "linkedin"]) {
+                            column_values(ids: ["email", "phone", "text_mm274aw7"]) {
                                 id
                                 text
                             }
@@ -92,7 +90,7 @@ class MondayClient:
                     email_address=email,
                     name=item["name"],
                     phone=cols.get("phone"),
-                    linkedin_url=cols.get("linkedin"),
+                    linkedin=cols.get("text_mm274aw7"),
                     monday_id=item["id"],
                 )
         return contacts
@@ -123,7 +121,7 @@ class MondayClient:
                         "text": contact.email_address,
                     },
                     "phone": contact.phone,
-                    "linkedin": contact.linkedin_url,
+                    "text_mm274aw7": contact.linkedin,
                 }
             ),
         }
@@ -132,7 +130,15 @@ class MondayClient:
 
     async def update_contact(self, monday_id: str, fields: dict) -> None:
         """Update existing Monday contact, matching on ID"""
-
+        FIELD_TO_COLUMN_ID = {
+            "name": "name",
+            "phone": "phone",
+            "linkedin": "text_mm274aw7",  # Monday's actual column ID
+        }       
+        translated = {
+        FIELD_TO_COLUMN_ID[field]: value
+        for field, value in fields.items()
+        }
         query = """
         mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
             change_multiple_column_values(
@@ -142,11 +148,13 @@ class MondayClient:
             ) { id }
         }
         """
-        await self._post(
+        res = await self._post(
             query,
             {
                 "boardId": self.board_id,
                 "itemId": monday_id,
-                "columnValues": json.dumps(fields),
+                "columnValues": json.dumps(translated),
             },
         )
+
+        logger.debug(f"update_response {res}")
