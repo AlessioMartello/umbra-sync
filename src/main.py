@@ -42,10 +42,11 @@ async def main():
         trusted_email_addresses = transforms.get_sent_recipient_emails(sent)
         filtered_inbox = transforms.filter_inbox(inbox, trusted_email_addresses)
         deduplicated_inbox = transforms.deduplicate_inbox(filtered_inbox)
+       
+        to_create, to_update, skipped = [], [], []
 
         if len(deduplicated_inbox) > 0:
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
-                to_create, to_update, skipped = [], [], []
                 mday_contacts = await mday.get_existing_contacts()
 
                 for email in deduplicated_inbox:
