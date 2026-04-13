@@ -12,6 +12,17 @@ MONDAY_URL = "https://api.monday.com/v2"
 
 
 class MondayClient:
+    COL_EMAIL = "email"
+    COL_PHONE = "phone"
+    COL_LINKEDIN = "text_mm274aw7"
+
+    COLUMN_IDS = [COL_EMAIL, COL_PHONE, COL_LINKEDIN]
+
+    FIELD_TO_COLUMN_ID = {
+        "phone": COL_PHONE,
+        "linkedin": COL_LINKEDIN,
+    }
+
     def __init__(self, api_key: str, board_id: str):
         logger.info("Initialising Monday object")
         self.board_id = board_id
@@ -34,7 +45,7 @@ class MondayClient:
         response.raise_for_status()
         return response.json()
 
-    async def get_existing_contacts(self) -> dict[str, dict]:
+    async def get_existing_contacts(self) -> dict[str, Contact]:
         """Fetch existing contacts from Monday and return as email-keyed dict."""
         items = await self._fetch_all_items()
         return self._build_contact_lookup(items)
@@ -42,14 +53,14 @@ class MondayClient:
     async def _fetch_all_items(self) -> list[dict]:
         """Return all contacts on the Monday board."""
         query = """
-            query ($boardId: ID!, $cursor: String) {
+            query ($boardId: ID!, $cursor: String, $columnIds: [String!]!) {
                 boards(ids: [$boardId]) {
                     items_page(limit: 500, cursor: $cursor) {
                         cursor
                         items {
                             id
                             name
-                            column_values(ids: ["email", "phone", "text_mm274aw7"]) {
+                            column_values(ids: $columnIds) {
                                 id
                                 text
                             }
@@ -66,7 +77,12 @@ class MondayClient:
 
         while True:
             result = await self._post(
-                query, {"boardId": self.board_id, "cursor": cursor}
+                query,
+                {
+                    "boardId": self.board_id,
+                    "cursor": cursor,
+                    "columnIds": MondayClient.COLUMN_IDS,
+                },
             )
             page = result["data"]["boards"][0]["items_page"]
             all_items.extend(page["items"])
@@ -78,8 +94,8 @@ class MondayClient:
         logger.info(f"Fetched {len(all_items)} items from Monday board")
         return all_items
 
-    @staticmethod
-    def _build_contact_lookup(items: list[dict]) -> dict[str, Contact]:
+    @classmethod
+    def _build_contact_lookup(cls, items: list[dict]) -> dict[str, Contact]:
         """Build email-keyed lookup dict from raw Monday items."""
         contacts = {}
         for item in items:
@@ -89,19 +105,18 @@ class MondayClient:
                 contacts[email] = Contact(
                     email_address=email,
                     name=item["name"],
-                    phone=cols.get("phone"),
-                    linkedin=cols.get("text_mm274aw7"),
+                    phone=cols.get(cls.COL_PHONE),
+                    linkedin=cols.get(cls.COL_LINKEDIN),
                     monday_id=item["id"],
                 )
         return contacts
 
     async def post_new_contact(self, contact: Contact):
         """Make POST request to Monday of new contact"""
-        query = (
-            """
-        mutation ($name: String!, $values: JSON!) {
+        query = """
+        mutation ($board_id: ID!, $name: String!, $values: JSON!) {
             create_item(
-                board_id: %s,
+                board_id: $board_id,
                 item_name: $name,
                 column_values: $values
             ) {
@@ -109,35 +124,29 @@ class MondayClient:
             }
         }
         """
-            % self.board_id
-        )
 
         mday_vars = {
+            "board_id": self.board_id,
             "name": contact.name,
             "values": json.dumps(
                 {
-                    "email": {
+                    self.COL_EMAIL: {
                         "email": contact.email_address,
                         "text": contact.email_address,
                     },
-                    "phone": contact.phone,
-                    "text_mm274aw7": contact.linkedin,
+                    self.COL_PHONE: contact.phone,
+                    self.COL_LINKEDIN: contact.linkedin,
                 }
             ),
         }
-        logger.info(f"Posting {contact.email_address} to Monday.com")
+        logger.debug(f"Posting {contact.email_address} to Monday.com")
         return await self._post(query, mday_vars=mday_vars)
 
     async def update_contact(self, monday_id: str, fields: dict) -> None:
         """Update existing Monday contact, matching on ID"""
-        FIELD_TO_COLUMN_ID = {
-            "name": "name",
-            "phone": "phone",
-            "linkedin": "text_mm274aw7",  # Monday's actual column ID
-        }       
-        translated = {
-        FIELD_TO_COLUMN_ID[field]: value
-        for field, value in fields.items()
+        translated_monday_fields = {
+            self.FIELD_TO_COLUMN_ID[field]: value
+            for field, value in fields.items()
         }
         query = """
         mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
@@ -153,8 +162,8 @@ class MondayClient:
             {
                 "boardId": self.board_id,
                 "itemId": monday_id,
-                "columnValues": json.dumps(translated),
+                "columnValues": json.dumps(translated_monday_fields),
             },
         )
 
-        logger.debug(f"update_response {res}")
+        logger.debug(f"update response {res}")

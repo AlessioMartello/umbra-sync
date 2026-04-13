@@ -8,6 +8,7 @@ from utils.logger import get_logger
 from utils.watermark import get_watermark, update_watermark
 from clients.outlk import OutlookClient
 from utils import transforms
+from utils.monitoring import write_job_summary
 
 logger = get_logger(__name__)
 
@@ -17,8 +18,10 @@ CLIENT_ID = os.getenv("AZURE_CLIENT_ID")
 REFRESH_TOKEN = os.getenv("REFRESH_TOKEN")
 API_KEY = os.getenv("MONDAY_API_KEY")
 MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
-
-MONDAY_FIELDS_TO_CHECK = ["name", "phone", "linkedin"]
+MONDAY_FIELDS_TO_CHECK = [
+    "phone",
+    "linkedin",
+]
 
 debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}
 
@@ -54,10 +57,12 @@ async def main():
                             outlook_contact.email_address, None
                         )
 
+                        # Add for creation
                         if not existing_mday_contact:
                             to_create.append(outlook_contact)
                             continue
 
+                        # Check for missing fields
                         missing_fields = {
                             field: getattr(outlook_contact, field)
                             for field in MONDAY_FIELDS_TO_CHECK
@@ -65,10 +70,12 @@ async def main():
                             and not getattr(existing_mday_contact, field)
                         }
 
+                        # Mapping due to naming in Monday differing from our Contact model
                         if missing_fields:
                             to_update.append(
                                 (existing_mday_contact.monday_id, missing_fields)
                             )
+
                         else:
                             skipped.append(outlook_contact)
 
@@ -77,7 +84,7 @@ async def main():
                         logger.warning(f"Skipping email due to processing error: {e}")
                         continue
 
-                # Write
+                # Execute the desired API actions in Monday
                 for contact in to_create:
                     await mday.post_new_contact(contact)
 
@@ -91,8 +98,9 @@ async def main():
             logger.info("No new inbox data to process. exiting")
 
         # Get the numbers
-
         update_watermark(debug)
+        write_job_summary(len(to_create), len(to_update), len(skipped), since)
+
     except Exception as e:
         logger.exception(f"Script return an error: {e}")
         raise
