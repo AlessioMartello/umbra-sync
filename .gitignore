@@ -11,6 +11,8 @@ wheels/
 
 # local development
 .env
+.*_cache
+.vscode
 
 # temp data
 tmp*

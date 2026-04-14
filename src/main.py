@@ -42,7 +42,7 @@ async def main():
         trusted_email_addresses = transforms.get_sent_recipient_emails(sent)
         filtered_inbox = transforms.filter_inbox(inbox, trusted_email_addresses)
         deduplicated_inbox = transforms.deduplicate_inbox(filtered_inbox)
-       
+
         to_create, to_update, skipped = [], [], []
 
         if len(deduplicated_inbox) > 0:
@@ -99,8 +99,8 @@ async def main():
             logger.info("No new inbox data to process. exiting")
 
         # Get the numbers
-        update_watermark(debug)
         write_job_summary(len(to_create), len(to_update), len(skipped), since)
+        update_watermark(debug)
 
     except Exception as e:
         logger.exception(f"Script return an error: {e}")
