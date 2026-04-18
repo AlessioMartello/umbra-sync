@@ -62,7 +62,7 @@ class OutlookClient:
         """Return Inbox emails"""
         all_inbox_emails = []
         params = {
-            "$select": "subject,from,receivedDateTime,body,inferenceClassification",
+            "$select": "subject,from,receivedDateTime,uniqueBody,inferenceClassification",
             "$top": NUM_EMAILS_TO_RETRIEVE_PER_REQUEST,
         }
 

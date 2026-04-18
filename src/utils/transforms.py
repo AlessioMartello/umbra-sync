@@ -1,7 +1,13 @@
+import re
+
 from utils.data_models import Contact
 from utils.logger import get_logger
-from bs4 import BeautifulSoup
-import re
+from utils.contact_extraction import (
+    _parse_email_body,
+    _look_for_linkedin_address,
+    _extract_phone_number,
+    _nlp_signature_contact_extraction,
+)
 
 logger = get_logger(__name__)
 
@@ -88,51 +94,27 @@ def parse_email_to_contact(email: dict) -> Contact:
     linkedin: str = None
 
     email_address = _get_email_address(email)
-
+    email_body = _parse_email_body(email)
     if not email_address:
         raise ValueError("Email has no mandatory sender address")
 
+    ## Manual extraction
     name = _get_name(email) or email_address.split("@")[0]
-    linkedin = _look_for_linkedin_address(_parse_email_body(email))
+    phone = _extract_phone_number(email_body)
+    linkedin = _look_for_linkedin_address(email_body)
 
-    return Contact(email_address=email_address, name=name, linkedin=linkedin)
+    ## NLP extraction
+    nlp_extracted = _nlp_signature_contact_extraction(email_body, email_address)
+    name = name or nlp_extracted.name
+    phone = phone or nlp_extracted.phone
+    linkedin = linkedin or nlp_extracted.linkedin
+    job_title = nlp_extracted.job_title
+    website = nlp_extracted.website
+    address = nlp_extracted.address
 
-
-def _parse_email_body(email: dict) -> str:
-    """Reads HTML body and outputs as a string. Don't discard the href from anchor tags as LinkedIn URLs can be hidden inside them"""
-    html_body = email.get("body", {}).get("content", "")
-    soup = BeautifulSoup(html_body, "html.parser")
-
-    for tag in soup.find_all("a", href=True):
-        href = tag["href"]
-        tag.append(f" {href} ")
-
-    text = soup.get_text(separator=" ")
-    text = " ".join(text.split())
-    logger.debug(
-        f"Parsed email body to text: {text[:100]}..."
-    )  # Log the first 100 characters
-    return text
-
-
-def _look_for_linkedin_address(email_body: str) -> str:
-    email_body = email_body.replace("<", " ").replace(">", " ")
-    pattern = r"""
-        (?:https?://)?          # optional protocol
-        (?:www\.)?              # optional www only (avoids matching fakelinkedin.com)
-        (?<![\w-])                  # no word char/hyphen directly before (blocks notlinkedin)
-        linkedin\.com
-        /in/
-        [\w\-\.%]+             # profile slug
-        (?:[/?][\w\-\.?=&%/]*)?    # optional query string or trailing path
-    """
-    match = re.search(pattern, email_body, re.IGNORECASE | re.VERBOSE)
-
-    if match:
-        linkedin = match.group(0).strip().rstrip(".,!?;:/")
-        logger.debug(f"Found LinkedIn URL: {linkedin}")
-        return linkedin
-    return ""
+    return Contact(
+        email_address=email_address, name=name, phone=phone, linkedin=linkedin
+    )
 
 
 def _check_list(data: list) -> None:

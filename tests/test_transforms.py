@@ -7,7 +7,7 @@ from utils.transforms import (
     _sort_inbox,
     _check_list,
     _check_set,
-    _get_name
+    _get_name,
 )
 
 
@@ -179,19 +179,26 @@ def test_sort_inbox():
     result = _sort_inbox(data)
 
     assert len(result) == 3, f"Expected 3 items but got {len(result)}"
-    assert result[0]["id"] == "test_value_b", f"Expected 'test_value_b' but got '{result[0]['id']}'"
-    assert result[1]["id"] == "test_value_c", f"Expected 'test_value_c' but got '{result[1]['id']}'"
-    assert result[2]["id"] == "test_value_a", f"Expected 'test_value_a' but got '{result[2]['id']}'"
+    assert result[0]["id"] == "test_value_b", (
+        f"Expected 'test_value_b' but got '{result[0]['id']}'"
+    )
+    assert result[1]["id"] == "test_value_c", (
+        f"Expected 'test_value_c' but got '{result[1]['id']}'"
+    )
+    assert result[2]["id"] == "test_value_a", (
+        f"Expected 'test_value_a' but got '{result[2]['id']}'"
+    )
+
 
 @pytest.mark.parametrize(
     "input, expected",
     [
         ("subscribe@example.com", True),
         (1, True),
-        (set((1,2,3)), True),
-        ((1,2,3), True),
+        (set((1, 2, 3)), True),
+        ((1, 2, 3), True),
         ([1, 2, 3], False),
-        ([], False)
+        ([], False),
     ],
 )
 def test_check_list(input, expected):
@@ -200,17 +207,18 @@ def test_check_list(input, expected):
             _check_list(input)
     else:
         _check_list(input)  # Should not raise
-    
+
+
 @pytest.mark.parametrize(
-"input, expected",
-[
-    ("subscribe@example.com", True),
-    (1, True),
-    (set((1,2,3)), False),
-    ((1,2,3), True),
-    ([1, 2, 3], True),
-    ([], True)
-],
+    "input, expected",
+    [
+        ("subscribe@example.com", True),
+        (1, True),
+        (set((1, 2, 3)), False),
+        ((1, 2, 3), True),
+        ([1, 2, 3], True),
+        ([], True),
+    ],
 )
 def test_check_set(input, expected):
     if expected:

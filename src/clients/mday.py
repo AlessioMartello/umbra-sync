@@ -43,7 +43,10 @@ class MondayClient:
             MONDAY_URL, json=data, headers=self._headers
         )
         response.raise_for_status()
-        return response.json()
+        result = response.json()
+        if "errors" in result:
+            raise RuntimeError(f"Monday API error: {result['errors']}")
+        return result
 
     async def get_existing_contacts(self) -> dict[str, Contact]:
         """Fetch existing contacts from Monday and return as email-keyed dict."""
