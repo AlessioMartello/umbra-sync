@@ -19,7 +19,14 @@ class MondayClient:
     COL_JOB_TITLE = "text0"
     COL_LINKEDIN = "text_mm274aw7"
 
-    COLUMN_IDS = [COL_EMAIL, COL_PHONE, COL_ADDRESS, COL_WEBSITE, COL_JOB_TITLE, COL_LINKEDIN]
+    COLUMN_IDS = [
+        COL_EMAIL,
+        COL_PHONE,
+        COL_ADDRESS,
+        COL_WEBSITE,
+        COL_JOB_TITLE,
+        COL_LINKEDIN,
+    ]
 
     FIELD_TO_COLUMN_ID = {
         "phone": COL_PHONE,
