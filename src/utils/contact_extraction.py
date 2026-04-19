@@ -12,6 +12,8 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
 
 def _parse_email_body(email: dict) -> str:
     """Reads HTML body and outputs as a string. Don't discard the href from anchor tags as LinkedIn URLs can be hidden inside them"""
@@ -70,7 +72,6 @@ def _nlp_signature_contact_extraction(email_body: str, sender_email: str) -> dic
     
     {{
         "name": null,
-        "email": null,
         "phone": null,
         "linkedin_url": null,
         "job_title": null,
@@ -85,10 +86,10 @@ def _nlp_signature_contact_extraction(email_body: str, sender_email: str) -> dic
     """
 
     response = client.chat.completions.create(
-        model="llama-3.2-90b-text-preview",
+        model=GROQ_MODEL,
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},  # guarantees valid JSON back
         temperature=0,  # no creativity — just extract facts
     )
 
-    return json.loads(response.choices[0].message.content)
+    return json.loads(response.choices[0].message.content) or {}

@@ -14,13 +14,19 @@ MONDAY_URL = "https://api.monday.com/v2"
 class MondayClient:
     COL_EMAIL = "email"
     COL_PHONE = "phone"
+    COL_ADDRESS = "text_mm2jnfn5"
+    COL_WEBSITE = "text_mm2jf3vf"
+    COL_JOB_TITLE = "text0"
     COL_LINKEDIN = "text_mm274aw7"
 
-    COLUMN_IDS = [COL_EMAIL, COL_PHONE, COL_LINKEDIN]
+    COLUMN_IDS = [COL_EMAIL, COL_PHONE, COL_ADDRESS, COL_WEBSITE, COL_JOB_TITLE, COL_LINKEDIN]
 
     FIELD_TO_COLUMN_ID = {
         "phone": COL_PHONE,
         "linkedin": COL_LINKEDIN,
+        "address": COL_ADDRESS,
+        "website": COL_WEBSITE,
+        "job_title": COL_JOB_TITLE,
     }
 
     def __init__(self, api_key: str, board_id: str):
@@ -111,6 +117,9 @@ class MondayClient:
                     phone=cols.get(cls.COL_PHONE),
                     linkedin=cols.get(cls.COL_LINKEDIN),
                     monday_id=item["id"],
+                    address=cols.get(cls.COL_ADDRESS),
+                    website=cols.get(cls.COL_WEBSITE),
+                    job_title=cols.get(cls.COL_JOB_TITLE),
                 )
         return contacts
 
@@ -139,6 +148,9 @@ class MondayClient:
                     },
                     self.COL_PHONE: contact.phone,
                     self.COL_LINKEDIN: contact.linkedin,
+                    self.COL_ADDRESS: contact.address,
+                    self.COL_WEBSITE: contact.website,
+                    self.COL_JOB_TITLE: contact.job_title,
                 }
             ),
         }

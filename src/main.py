@@ -21,6 +21,9 @@ MONDAY_BOARD_ID = os.getenv("MONDAY_BOARD_ID")
 MONDAY_FIELDS_TO_CHECK = [
     "phone",
     "linkedin",
+    "address",
+    "job_title",
+    "website",
 ]
 
 debug: bool = os.getenv("DEBUG", "False").strip().lower() in {"true"}

@@ -9,3 +9,6 @@ class Contact(BaseModel):
     phone: Optional[str] = None
     linkedin: Optional[str] = None
     monday_id: Optional[str] = None
+    address: Optional[str] = None
+    job_title: Optional[str] = None
+    website: Optional[str] = None

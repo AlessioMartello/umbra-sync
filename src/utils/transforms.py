@@ -105,15 +105,22 @@ def parse_email_to_contact(email: dict) -> Contact:
 
     ## NLP extraction
     nlp_extracted = _nlp_signature_contact_extraction(email_body, email_address)
-    name = name or nlp_extracted.name
-    phone = phone or nlp_extracted.phone
-    linkedin = linkedin or nlp_extracted.linkedin
-    job_title = nlp_extracted.job_title
-    website = nlp_extracted.website
-    address = nlp_extracted.address
+    if nlp_extracted:
+        name = name or nlp_extracted.get("name")
+        phone = phone or nlp_extracted.get("phone")
+        linkedin = linkedin or nlp_extracted.get("linkedin_url")
+        job_title = nlp_extracted.get("job_title")
+        website = nlp_extracted.get("website")
+        address = nlp_extracted.get("address")
 
     return Contact(
-        email_address=email_address, name=name, phone=phone, linkedin=linkedin
+        email_address=email_address,
+        name=name,
+        phone=phone,
+        linkedin=linkedin,
+        job_title=job_title,
+        website=website,
+        address=address,
     )
 
 
