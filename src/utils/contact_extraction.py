@@ -7,6 +7,7 @@ import phonenumbers
 from groq import Groq
 
 from utils.logger import get_logger
+from retry_strategy import groq_retry_strategy
 
 
 logger = get_logger(__name__)
@@ -63,6 +64,7 @@ def _extract_phone_number(email_body: str) -> str:
     return ""
 
 
+@groq_retry_strategy
 def _nlp_signature_contact_extraction(email_body: str, sender_email: str) -> dict:
 
     prompt = f"""

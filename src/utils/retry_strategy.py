@@ -1,10 +1,12 @@
 import logging
 
 import httpx
+from groq import RateLimitError, APIConnectionError, APITimeoutError
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
+    wait_exponential_jitter,
     before_sleep_log,
     retry_if_exception_type,
     retry_if_exception,
@@ -36,4 +38,11 @@ api_retry_strategy = retry(
     wait=wait_exponential(multiplier=2, min=4, max=30),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
+)
+
+groq_retry_strategy = retry(
+    retry=retry_if_exception_type(RateLimitError, APIConnectionError, APITimeoutError),
+    stop=stop_after_attempt(4),
+    wait=wait_exponential_jitter(initial=60, max=180, exp_base=2, jitter=15),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
 )
