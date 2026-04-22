@@ -5,15 +5,19 @@ import os
 from bs4 import BeautifulSoup
 import phonenumbers
 from groq import Groq
+from dotenv import load_dotenv
 
 from utils.logger import get_logger
-from retry_strategy import groq_retry_strategy
+from utils.retry_strategy import groq_retry_strategy
 
 
 logger = get_logger(__name__)
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+load_dotenv()
 
 GROQ_MODEL = "llama-3.3-70b-versatile"
+
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 
 def _parse_email_body(email: dict) -> str:
@@ -63,9 +67,14 @@ def _extract_phone_number(email_body: str) -> str:
             )
     return ""
 
+def _get_email_tail(email_body: str) -> str:
+    """Extract the last 25% of the email body, where signatures usually are"""
+    return email_body[-3500:].strip()
+
 
 @groq_retry_strategy
 def _nlp_signature_contact_extraction(email_body: str, sender_email: str) -> dict:
+    email_body = _get_email_tail(email_body)
 
     prompt = f"""
     Extract contact information from this email signature.

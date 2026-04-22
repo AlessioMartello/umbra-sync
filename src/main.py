@@ -49,6 +49,7 @@ async def main():
         to_create, to_update, skipped = [], [], []
 
         if len(deduplicated_inbox) > 0:
+            logger.info(f"Preparing data for synchronisation with Monday.com ({len(deduplicated_inbox)} items to process)")
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
                 mday_contacts = await mday.get_existing_contacts()
 
@@ -66,12 +67,12 @@ async def main():
                             to_create.append(outlook_contact)
                             continue
 
-                        # Check for missing fields
+                        # Check for updates coming from Outlook
                         missing_fields = {
                             field: getattr(outlook_contact, field)
                             for field in MONDAY_FIELDS_TO_CHECK
                             if getattr(outlook_contact, field)
-                            and not getattr(existing_mday_contact, field)
+                            and getattr(outlook_contact, field) != getattr(existing_mday_contact, field)
                         }
 
                         # Mapping due to naming in Monday differing from our Contact model
@@ -83,15 +84,20 @@ async def main():
                         else:
                             skipped.append(outlook_contact)
 
+                        await asyncio.sleep(15) # Proactive rate limiting for groq tokens
+
                     except Exception as e:
                         # This ensures one bad email doesn't crash the whole script
                         logger.warning(f"Skipping email due to processing error: {e}")
+                        skipped.append(outlook_contact)
                         continue
 
                 # Execute the desired API actions in Monday
+                logger.info(f"Creating {len(to_create)} contacts")
                 for contact in to_create:
                     await mday.post_new_contact(contact)
 
+                logger.info(f"Updating {len(to_update)} contacts")
                 for monday_id, fields in to_update:
                     await mday.update_contact(monday_id, fields)
 

@@ -41,8 +41,16 @@ api_retry_strategy = retry(
 )
 
 groq_retry_strategy = retry(
-    retry=retry_if_exception_type(RateLimitError, APIConnectionError, APITimeoutError),
+    retry=(
+        retry_if_exception_type(
+            (
+                RateLimitError,
+                APIConnectionError,
+                APITimeoutError,
+            )
+        )
+    ),
     stop=stop_after_attempt(4),
-    wait=wait_exponential_jitter(initial=60, max=180, exp_base=2, jitter=15),
+    wait=wait_exponential_jitter(initial=60, max=600, exp_base=2, jitter=15),
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
