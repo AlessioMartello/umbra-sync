@@ -73,17 +73,17 @@ def test_linkedin_parsing(input, expected):
     "email, expected",
     [
         # --- Basic plain text body ---
-        ({"body": {"content": "<p>Hello world</p>"}}, "Hello world"),
+        ({"uniqueBody": {"content": "<p>Hello world</p>"}}, "Hello world"),
         # --- Empty body ---
-        ({"body": {"content": ""}}, ""),
+        ({"uniqueBody": {"content": ""}}, ""),
         # --- Missing body key ---
         ({}, ""),
         # --- Missing content key ---
-        ({"body": {}}, ""),
+        ({"uniqueBody": {}}, ""),
         # --- LinkedIn URL hidden in anchor tag text (core case) ---
         (
             {
-                "body": {
+                "uniqueBody": {
                     "content": '<a href="https://linkedin.com/in/johndoe">My Profile</a>'
                 }
             },
@@ -92,7 +92,7 @@ def test_linkedin_parsing(input, expected):
         # --- Anchor with URL as both text and href (URL should not be duplicated badly) ---
         (
             {
-                "body": {
+                "uniqueBody": {
                     "content": '<a href="https://linkedin.com/in/johndoe">https://linkedin.com/in/johndoe</a>'
                 }
             },
@@ -101,25 +101,29 @@ def test_linkedin_parsing(input, expected):
         # --- Multiple anchor tags ---
         (
             {
-                "body": {
+                "uniqueBody": {
                     "content": '<a href="https://linkedin.com/in/johndoe">Profile</a> and <a href="https://example.com">Site</a>'
                 }
             },
             "Profile https://linkedin.com/in/johndoe and Site https://example.com",
         ),
         # --- Anchor with no href (should be ignored) ---
-        ({"body": {"content": "<a>No href here</a>"}}, "No href here"),
+        ({"uniqueBody": {"content": "<a>No href here</a>"}}, "No href here"),
         # --- Whitespace and newlines collapsed ---
-        ({"body": {"content": "<p>Hello</p>\n\n<p>World</p>"}}, "Hello World"),
+        ({"uniqueBody": {"content": "<p>Hello</p>\n\n<p>World</p>"}}, "Hello World"),
         # --- Strips HTML tags ---
         (
-            {"body": {"content": "<h1>Title</h1><p>Body <strong>text</strong></p>"}},
+            {
+                "uniqueBody": {
+                    "content": "<h1>Title</h1><p>Body <strong>text</strong></p>"
+                }
+            },
             "Title Body text",
         ),
         # --- Realistic email signature with hidden LinkedIn URL ---
         (
             {
-                "body": {
+                "uniqueBody": {
                     "content": "<p>Best regards,</p><p>John</p><a href='https://linkedin.com/in/johndoe'>Connect on LinkedIn</a>"
                 }
             },
@@ -179,15 +183,15 @@ def test_sort_inbox():
     result = _sort_inbox(data)
 
     assert len(result) == 3, f"Expected 3 items but got {len(result)}"
-    assert result[0]["id"] == "test_value_b", (
-        f"Expected 'test_value_b' but got '{result[0]['id']}'"
-    )
-    assert result[1]["id"] == "test_value_c", (
-        f"Expected 'test_value_c' but got '{result[1]['id']}'"
-    )
-    assert result[2]["id"] == "test_value_a", (
-        f"Expected 'test_value_a' but got '{result[2]['id']}'"
-    )
+    assert (
+        result[0]["id"] == "test_value_b"
+    ), f"Expected 'test_value_b' but got '{result[0]['id']}'"
+    assert (
+        result[1]["id"] == "test_value_c"
+    ), f"Expected 'test_value_c' but got '{result[1]['id']}'"
+    assert (
+        result[2]["id"] == "test_value_a"
+    ), f"Expected 'test_value_a' but got '{result[2]['id']}'"
 
 
 @pytest.mark.parametrize(

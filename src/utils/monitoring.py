@@ -17,4 +17,6 @@ def write_job_summary(created: int, updated: int, skipped: int, since: str) -> N
     """
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
-        Path(summary_path).write_text(summary)
+        summary_file = Path(summary_path)
+        summary_file.parent.mkdir(parents=True, exist_ok=True)
+        summary_file.write_text(summary)

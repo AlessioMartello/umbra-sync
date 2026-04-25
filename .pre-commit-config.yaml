@@ -1,0 +1,30 @@
+repos:
+  # Ruff — linting + formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.0
+    hooks:
+      - id: ruff
+        args: ['--fix']
+      - id: ruff-format
+
+  # General hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-ast              # Python syntax
+      - id: check-json             # watermark.json
+      - id: pretty-format-json     # watermark.json formatting
+        args: ['--autofix']
+      - id: check-yaml             # GHA workflows + pre-commit config itself
+      - id: detect-private-key     # catches actual private keys/certs
+      - id: debug-statements       # no breakpoint() or pdb
+      - id: check-merge-conflict   # no unresolved merge markers
+      - id: trailing-whitespace    # minor but keeps diffs clean
+      - id: end-of-file-fixer      # ensures newline at end of files
+
+
+  # Secrets detection — critical given OAuth tokens and API keys
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.0
+    hooks:
+      - id: gitleaks

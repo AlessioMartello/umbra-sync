@@ -8,7 +8,7 @@ logger = get_logger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 WATERMARK_PATH = BASE_DIR / ".state" / "last_run.json"
-DEBUG_LOOKBACK_DAYS = 2*365
+DEBUG_LOOKBACK_DAYS = 2 * 365
 
 
 def get_watermark(debug: bool) -> datetime:
@@ -37,7 +37,7 @@ def update_watermark(debug) -> None:
     """Set the watermark to be the present timestamp"""
     if not debug:
         try:
-            WATERMARK_PATH.parent.mkdir(exist_ok=True)
+            WATERMARK_PATH.parent.mkdir(parents=True, exist_ok=True)
             now = datetime.now(timezone.utc).isoformat()
             WATERMARK_PATH.write_text(json.dumps({"last_run": now}))
             logger.info(f"Successfully updated watermark as {now}")

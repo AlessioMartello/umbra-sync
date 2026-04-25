@@ -1,0 +1,6 @@
+# .gitleaks.toml
+[allowlist]
+paths = [
+    ".env",
+    "MEMORY.md",      # contains example key names in documentation
+]
