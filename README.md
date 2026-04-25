@@ -1,3 +1,5 @@
+[![ci-tests](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml)
+
 # Umbra Sync
 
 Umbra Sync is an automated contact synchronization tool that bridges Microsoft Outlook and Monday.com. It intelligently extracts contact information from your Outlook inbox and sent items, then synchronizes it with a Monday.com board—creating new contacts and updating existing ones with missing information.
