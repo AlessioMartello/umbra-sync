@@ -188,3 +188,40 @@ status:    {"label": "Active"}
 - Don't use `body` from Graph API — use `uniqueBody`
 - Don't trust Groq to return valid JSON without `response_format: json_object`
 - Don't store access tokens — always derive from refresh token at runtime
+
+---
+
+## Recent Improvements (April 26, 2026)
+
+### Robustness Enhancements
+- **Environment validation:** Added `_validate_env()` function that fails fast with clear error messages if required env vars missing
+  - Tests: 7 comprehensive unit tests covering success case, individual missing vars, multiple missing vars, and error message validation
+- **Exception handling fix:** Fixed bug where `outlook_contact` could be undefined in error handler
+  - Now properly initialized as `Optional[Contact] = None` before try block
+  - Only appended to skipped list if successfully created
+- **Rate limit configuration:** Externalized hardcoded `15s` sleep into `RATE_LIMIT_DELAY_SEC` env var (default 15 seconds)
+
+### Functionality Additions
+- **CLI flags:** Added argparse with `--debug` and `--dry-run` flags
+  - `--debug`: Enables verbose logging, overrides DEBUG env var
+  - `--dry-run`: Previews changes without writing to Monday.com or updating watermark
+- **Environment documentation:** Created `.env.example` with all required/optional vars and inline comments on credential sourcing
+
+### Testing Coverage
+- Created `test_main.py` with 7 tests for `_validate_env()` covering:
+  - ✓ Success case with all required vars
+  - ✓ Individual missing var errors (each of 4 required vars)
+  - ✓ Multiple missing vars reported together
+  - ✓ Error message validation (mentions `.env` file for guidance)
+- All 251 existing tests pass; new test suite adds 7 more
+
+### Code Quality Improvements
+- ✓ Type hints: Added `Optional[Contact]` annotation in main loop
+- ✓ Ruff lint: all checks pass
+- ✓ Syntax validation: passes
+- ✓ CLI help: displays correctly with `--help`
+
+### Architecture Notes
+- **Global `dry_run` variable:** Coordinates dry-run mode across function scope (set by CLI, checked before writes)
+- **Early validation:** `_validate_env()` called before any async operations to fail fast
+- **Test pattern:** Use `patch.dict(os.environ, {...}, clear=True/False)` for safe env var mocking in tests

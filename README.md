@@ -1,418 +1,259 @@
 [![ci-tests](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml)
-
 [![codecov](https://codecov.io/github/alessiomartello/umbra-sync/graph/badge.svg?token=3OXO8DRNXY)](https://codecov.io/github/alessiomartello/umbra-sync)
 
 # Umbra Sync
 
-Umbra Sync is an automated contact synchronization tool that bridges Microsoft Outlook and Monday.com. It intelligently extracts contact information from your Outlook inbox and sent items, then synchronizes it with a Monday.com board—creating new contacts and updating existing ones with missing information.
+> Automatically sync contacts from Outlook to Monday.com — no manual copying required.
 
-## Overview
+**Umbra Sync** bridges Microsoft Outlook and Monday.com by automatically extracting contact details from your emails (name, phone, LinkedIn, address, job title) and syncing them to a Monday.com board. Run it once to bootstrap your contacts, or schedule it as a recurring task to keep your database current.
 
-Umbra Sync solves the problem of maintaining accurate contact databases across multiple platforms. Instead of manually copying contact information between Outlook and Monday.com, this tool:
+## Why This Exists
 
-- Fetches new and recent emails from your Outlook inbox (since last sync)
-- Extracts contact details (email, name, phone, LinkedIn profile)
-- Identifies trusted senders from your sent items
-- Compares against existing Monday.com contacts
-- Creates new contacts for unknown senders
-- Updates existing contacts with missing fields from new emails
-- Maintains a watermark to avoid reprocessing
+Managing contacts across multiple platforms is tedious. You receive emails with contact information scattered throughout, but Monday.com has no native Outlook integration. This tool solves that by:
 
-## Key Features
+- **Extracting contact details** from email addresses, signatures, and message bodies
+- **Filtering to trusted senders** only (contacts you've emailed first)
+- **Avoiding duplicates** by matching on email address
+- **Preserving existing data** by only updating empty fields in Monday.com
+- **Remembering progress** through watermarking, so you only process new emails
 
-- **Bidirectional Awareness**: Builds trust from your own sent emails to filter inbox messages
-- **Incremental Sync**: Uses watermarking to process only new emails since last run
-- **Smart Matching**: Matches contacts by email address to identify duplicates
-- **Selective Updates**: Only updates fields that are missing in Monday.com (preserves existing data)
-- **Robust Error Handling**: Continues processing even if individual emails fail
-- **Comprehensive Logging**: Detailed logs for debugging and monitoring
-- **Async Support**: Uses async/await for efficient API calls
-- **Retry Strategy**: Automatic retry logic for transient API failures
+## How It Works
 
-## Project Tooling
-
-This project uses modern Python development tools for dependency management, testing, and code quality:
-
-### Core Tools
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| **Python** | 3.12+ | Runtime environment |
-| **[mise](https://mise.jdx.dev/)** | Latest | Tool version manager - manages Python and uv versions |
-| **[uv](https://docs.astral.sh/uv/)** | Latest | Fast Python package installer/resolver (replaces pip/venv) |
-| **[pytest](https://pytest.org/)** | 9.0.3+ | Testing framework for unit and integration tests |
-| **[ruff](https://docs.astral.sh/ruff/)** | 0.15.9+ | Fast Python linter and formatter (replaces black, isort, flake8) |
-
-### Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| **httpx** | 0.28.1+ | Async HTTP client for API calls |
-| **msal** | 1.35.1+ | Microsoft Authentication Library for Azure/Outlook auth |
-| **pydantic** | 2.12.5+ | Data validation and type hints |
-| **tenacity** | 9.1.4+ | Retry library with exponential backoff |
-| **beautifulsoup4** | 4.14.3+ | HTML/XML parsing for email content |
-| **python-dotenv** | 1.2.2+ | Environment variable loading from `.env` files |
-
-### Development Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| **ipykernel** | 7.2.0+ | Jupyter kernel for interactive notebooks |
-| **ruff** | 0.15.9+ | Linting and code formatting |
-
-### Configuration Files
-
-- **`pyproject.toml`**: Project metadata, dependencies, and tool configurations
-- **`mise.toml`**: Tool versions (Python 3.12) and environment setup
-- **`pytest.ini`** (in `pyproject.toml`): Test discovery configuration
-
-### Workflow
-
+```mermaid
+flowchart LR
+    A["Outlook Inbox"] -->|Fetch new emails| B["Extract Contact Info"]
+    C["Outlook Sent Items"] -->|Identify trusted senders| B
+    B -->|Filter & deduplicate| D["Load Monday Contacts"]
+    D -->|Match by email| E{Contact exists?}
+    E -->|No| F["Create new contact"]
+    E -->|Yes| G{Missing fields?}
+    G -->|Yes| H["Update contact"]
+    G -->|No| I["Skip"]
+    F --> J["Save watermark"]
+    H --> J
+    I --> J
 ```
-Development Workflow:
-┌─────────────────┐
-│  mise install   │  ← Install Python 3.12 & uv
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│   uv sync       │  ← Install all dependencies
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│  ruff format    │  ← Format code
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│  ruff check     │  ← Lint code
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│    pytest       │  ← Run tests
-└────────┬────────┘
-         ↓
-┌─────────────────┐
-│ python src/main │  ← Run application
-└─────────────────┘
-```
+
+The workflow is incremental: Umbra Sync remembers the last sync time and only processes new emails since then. It builds a "trust list" from your sent items, so it only adds contacts you've already communicated with—avoiding spam and outbound-only addresses.
 
 ## Architecture
 
-### Components
+### System Stack
+
+| Component | Technology | Why |
+|-----------|-----------|-----|
+| **Runtime** | Python 3.12+ | Modern, typed, async-ready |
+| **Email Source** | Microsoft Graph API + msal | Official Outlook 365 integration; refreshToken avoids password storage |
+| **CRM** | Monday.com GraphQL API | Existing tool; no vendor lock-in for contacts |
+| **Data Validation** | Pydantic | Type safety and schema enforcement |
+| **HTTP Client** | httpx | Async/concurrent API calls |
+| **Retry Logic** | tenacity | Exponential backoff for transient failures |
+| **Testing** | pytest + respx | Fast unit tests with mocked HTTP responses |
+| **Tooling** | uv + mise | Reproducible dev environment; fast installs |
+
+### Code Organization
 
 ```
 umbra-sync/
-├── src/
-│   ├── main.py                 # Main orchestration logic
-│   ├── clients/
-│   │   ├── outlk.py           # Outlook API client
-│   │   └── mday.py            # Monday.com API client
-│   └── utils/
-│       ├── data_models.py     # Pydantic models (Contact)
-│       ├── logger.py          # Logging configuration
-│       ├── retry_strategy.py  # Retry decorator
-│       ├── transforms.py      # Email/contact transformations
-│       ├── watermark.py       # Sync state management
-│       └── monitoring.py      # Job summary tracking
-├── tests/
-│   └── test_transforms.py     # Unit tests
-├── pyproject.toml             # Project metadata & dependencies
-├── mise.toml                  # Tool version management
-└── README.md                  # This file
+├── src/main.py                 # Orchestration: fetch, transform, sync
+├── src/clients/
+│   ├── outlk.py               # Outlook API wrapper (pagination, auth)
+│   └── mday.py                # Monday API wrapper (GraphQL mutations)
+├── src/utils/
+│   ├── data_models.py         # Pydantic Contact schema
+│   ├── transforms.py          # Email parsing, deduplication, filtering
+│   ├── watermark.py           # Last-sync timestamp storage
+│   ├── retry_strategy.py      # @api_retry_strategy decorator
+│   ├── logger.py              # Structured logging
+│   └── monitoring.py          # Job summary reporting
+└── tests/                      # Comprehensive unit tests
 ```
 
-### Data Flow
+### Key Design Decisions
 
-```
-1. Load last sync timestamp (watermark)
-   ↓
-2. Fetch Outlook Inbox (since watermark)
-   ↓
-3. Fetch Outlook Sent Items
-   ↓
-4. Extract trusted recipient emails from Sent Items
-   ↓
-5. Filter Inbox by trusted contacts
-   ↓
-6. Deduplicate Inbox
-   ↓
-7. Fetch existing Monday.com contacts
-   ↓
-8. For each inbox email:
-   - Parse contact details
-   - Match against Monday.com (by email)
-   - If new: add to create list
-   - If existing but missing fields: add to update list
-   - Otherwise: skip
-   ↓
-9. Create new contacts in Monday.com
-   ↓
-10. Update existing Monday.com contacts
-    ↓
-11. Save new watermark
-    ↓
-12. Write job summary
-```
+1. **Async/await throughout** — Concurrent API calls reduce total runtime (outlook inbox + sent items fetched in parallel)
+2. **Watermarking** — Only new emails processed; watermark survives restarts and crashes
+3. **Trust-list filtering** — Reduces noise; only contacts you've emailed are synced
+4. **Selective updates** — Never deletes Monday fields; only fills empty ones
+5. **Continuation on error** — One bad email doesn't crash the whole sync; continues to next email
 
-## Prerequisites
+## Getting Started
+
+### Prerequisites
 
 - **Python 3.12+**
-- **Microsoft Outlook Account** with API access (Entra ID / Azure AD)
-- **Monday.com Account** with a board for contacts
-- **API Credentials**:
-  - Azure Client ID (for Outlook)
-  - Outlook Refresh Token
-  - Monday.com API Key
-  - Monday.com Board ID
+- **[mise](https://mise.jdx.dev/)** — manages Python and `uv` versions
+- **[uv](https://docs.astral.sh/uv/)** — installs dependencies
+- **Microsoft Outlook 365** account (personal or work)
+- **Monday.com** workspace and board
 
-### Getting API Credentials
-
-#### Azure / Outlook Setup
-
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Register a new application (or use existing)
-3. Note the Client ID
-4. Set Redirect URI: `http://localhost`
-5. Create an auth flow to get Refresh Token (or use existing MSAL token)
-
-#### Monday.com Setup
-
-1. Go to your Monday.com workspace
-2. Settings → API & Integrations → API Tokens
-3. Create a new personal API token
-4. Create a dedicated contact board (or use existing)
-5. Note the board ID (visible in URL: `board/12345`)
-6. Go to the board and note the column IDs for email, phone, and LinkedIn
-
-## Installation
-
-### Using `mise` and `uv`
+### Install
 
 ```bash
-# Clone the repository
-git clone <repository-url>
+git clone https://github.com/AlessioMartello/umbra-sync
 cd umbra-sync
 
-# mise will automatically set up Python 3.12
+# mise installs Python 3.12 and uv automatically
 mise install
 
-# Create virtual environment (automatically done by mise)
+# Install dependencies
 uv sync
 ```
 
-## Configuration
+### Configure API Credentials
 
-Create a `.env` file in the project root with the following environment variables:
+Create a `.env` file in the project root:
 
 ```env
-# Outlook / Azure Configuration
-AZURE_CLIENT_ID=your_azure_client_id
-REFRESH_TOKEN=your_outlook_refresh_token
+# Azure / Outlook
+AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+REFRESH_TOKEN=MCwCA...
 
-# Monday.com Configuration
-MONDAY_API_KEY=your_monday_api_key
-MONDAY_BOARD_ID=your_board_id_number
+# Monday.com
+MONDAY_API_KEY=eyJhbGc...
+MONDAY_BOARD_ID=1234567890
 
 # Optional
 DEBUG=false
 ```
 
-### Environment Variables
+**Getting credentials:**
 
-| Variable | Description | Required | Example |
-|----------|-------------|----------|---------|
-| `AZURE_CLIENT_ID` | Azure AD application client ID | Yes | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `REFRESH_TOKEN` | Outlook refresh token | Yes | `MCwCA...` |
-| `MONDAY_API_KEY` | Monday.com personal API token | Yes | `eyJhbGc...` |
-| `MONDAY_BOARD_ID` | Monday.com board ID | Yes | `1234567890` |
-| `DEBUG` | Enable debug logging | No | `false` |
+| Credential | Source | Steps |
+|-----------|--------|-------|
+| `AZURE_CLIENT_ID` | [Azure Portal](https://portal.azure.com) | App Registrations → New → Copy Client ID |
+| `REFRESH_TOKEN` | Outlook OAuth | Use msal library to generate one-time |
+| `MONDAY_API_KEY` | Monday.com | Settings → API → Create API Token |
+| `MONDAY_BOARD_ID` | Monday.com | Open your contact board; ID is in the URL (e.g., `board/12345`) |
 
-## Usage
-
-### Run Sync
+### Run
 
 ```bash
-# Activate virtual environment
-source .venv/bin/activate
-
-# Run the sync
+# One-time sync (creates/updates contacts in Monday.com)
 python src/main.py
-```
 
-### Run with Debug Logging
+# Dry-run mode (preview changes without writing)
+python src/main.py --dry-run
 
-```bash
-DEBUG=true python src/main.py
-```
+# Debug mode (verbose logging)
+python src/main.py --debug
 
-### Run Tests
+# Combine flags
+python src/main.py --dry-run --debug
 
-```bash
-# Run all tests
+# Run tests
 pytest
 
-```
-
-## Configuration Details
-
-### Monday.com Schema
-
-The default column IDs used in `src/clients/mday.py`:
-
-```python
-COL_EMAIL = "email"           # Standard Monday column
-COL_PHONE = "phone"           # Standard Monday column
-COL_LINKEDIN = "text_mm274aw7"  # Custom LinkedIn field
-```
-
-**To customize**: Edit `COLUMN_IDS` in the `MondayClient` class to match your board's column configuration.
-
-### Watermark / State
-
-The watermark (last sync timestamp) is stored as:
-
-```
-.watermark         # Production watermark
-```
-
-This prevents reprocessing of old emails. Delete these files to force a full resync.
-
-## Data Models
-
-### Contact
-
-```python
-class Contact(BaseModel):
-    email_address: EmailStr          # Required, validated email
-    name: str                        # Required, min 1 character
-    phone: Optional[str] = None      # Optional
-    linkedin: Optional[str] = None   # Optional
-    monday_id: Optional[str] = None  # Optional Monday.com item ID
-```
-
-## Logging
-
-Logs are structured using a custom logger in `src/utils/logger.py`:
-
-```python
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
-logger.info("Message")
-logger.warning("Warning")
-logger.error("Error")
-```
-
-Log output includes:
-- Timestamp
-- Log level
-- Module name
-- Message
-
-
-## Error Handling & Retry Strategy
-
-The `@api_retry_strategy` decorator provides exponential backoff retry logic for transient failures:
-
-```python
-@api_retry_strategy
-async def _post(self, query: str, mday_vars: dict = None) -> dict:
-    # API call with automatic retries
-    pass
-```
-
-**Individual email failures do not crash the sync**:
-
-```python
-try:
-    outlook_contact = transforms.parse_email_to_contact(email)
-    # Process contact...
-except Exception as e:
-    logger.warning(f"Skipping email due to processing error: {e}")
-    continue  # Continue processing next email
-```
-
-## Development
-
-### Project Structure
-
-- **`src/main.py`**: Entry point and main orchestration logic
-- **`src/clients/`**: API client implementations
-  - `outlk.py`: Microsoft Outlook/Graph API client
-  - `mday.py`: Monday.com GraphQL API client
-- **`src/utils/`**: Utility modules
-  - `data_models.py`: Pydantic models
-  - `logger.py`: Logging configuration
-  - `retry_strategy.py`: Retry decorator
-  - `transforms.py`: Email/contact transformation logic
-  - `watermark.py`: Sync state management
-  - `monitoring.py`: Job summary tracking
-- **`tests/`**: Unit tests
-  - `test_transforms.py`: Tests for transform functions
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest
-
-# Run with verbose output
-pytest -v
-
-# Run specific test
-pytest tests/test_transforms.py::test_filter_inbox -v
-
-```
-
-### Code Quality
-
-This project uses **Ruff** for linting and formatting. Use before committing:
-
-```bash
-# Format code
+# Format & lint
 ruff format src/ tests/
-
-# Check for linting issues
-ruff check src/ tests/
-
-# Fix issues automatically
 ruff check --fix src/ tests/
 ```
 
-## Common Issues
+#### Understanding Dry-Run
 
-| Issue | Symptom | Solution |
-|-------|---------|----------|
-| No contacts created | Sync completes but Monday board unchanged | Check watermark; ensure inbox has emails; verify Monday board ID |
-| Duplicate contacts | Same contact appears multiple times | Contacts are matched by email; check for email variations |
-| Phone/LinkedIn not updating | Fields remain empty in Monday | Ensure regex patterns in `transforms.py` match your data format |
-| Script crashes | Unexpected error in logs | Check `.env` configuration; verify API credentials |
-| Memory usage grows | Script hangs during pagination | Check for API response issues; verify network connectivity |
+The `--dry-run` flag lets you preview what the sync will do **without making changes:**
 
-## Performance
+```bash
+$ python src/main.py --dry-run
+... (normal sync process)
+[DRY RUN] Skipping contact creation
+[DRY RUN] Skipping contact updates
+[DRY RUN] Skipping watermark update
+```
 
-- **Typical sync time**: 30-120 seconds (depends on inbox size)
-- **Email processing**: ~100-200 emails per minute
-- **API calls**: Batched where possible (async)
+Useful for:
+- **Testing configuration** — verify API credentials and contacts are being extracted correctly
+- **Before scheduling** — run once to preview results before setting up a cron job
+- **Debugging issues** — see what *would* be synced without polluting your Monday board
+- **Validating new contacts** — check that contact parsing is working as expected
 
-### Optimization Tips
+## Customization
 
-1. **Filter before processing**: Use `DEBUG=true` and reasonable watermark
-2. **Reduce scope**: Adjust `MONDAY_FIELDS_TO_CHECK` if not needed
-3. **Parallel requests**: Already uses `asyncio` for concurrent API calls
+### Monday.com Board Schema
+
+Edit column IDs in [src/clients/mday.py](src/clients/mday.py) to match your board:
+
+```python
+FIELD_TO_COLUMN_ID = {
+    "phone": "phone",                  # Standard column
+    "linkedin": "text_mm274aw7",       # Your custom column ID
+    "address": "text_mm2jnfn5",
+    "website": "text_mm2jf3vf",
+    "job_title": "text0",
+}
+```
+
+Get column IDs from Monday.com GraphQL API or inspect the board settings.
+
+### Watermark / Sync State
+
+Watermark (last sync timestamp) is stored in `.watermark` (production) and `.watermark_debug` (debug mode). Delete to force a full resync:
+
+```bash
+rm .watermark
+python src/main.py  # Reprocess all emails
+```
+
+## Implementation Details
+
+### Data Model
+
+[src/utils/data_models.py](src/utils/data_models.py) defines the `Contact` schema:
+
+```python
+class Contact(BaseModel):
+    email_address: EmailStr          # Validated email
+    name: str                        # Required, min 1 char
+    phone: Optional[str] = None
+    linkedin: Optional[str] = None
+    monday_id: Optional[str] = None  # Monday.com item ID
+    address: Optional[str] = None
+    job_title: Optional[str] = None
+    website: Optional[str] = None
+```
+
+### Retry & Error Handling
+
+- **Transient API failures** → Retry with exponential backoff (tenacity)
+- **Individual email parsing errors** → Log warning, continue to next email
+- **Critical auth failures** → Exit immediately with error
+
+The `@api_retry_strategy` decorator handles retries in [src/utils/retry_strategy.py](src/utils/retry_strategy.py).
+
+### Logging
+
+Structured logs in [src/utils/logger.py](src/utils/logger.py):
+
+```python
+from utils.logger import get_logger
+logger = get_logger(__name__)
+
+logger.info("Fetching Outlook inbox")
+logger.warning("Contact email invalid, skipping")
+logger.error("Failed to update Monday contact", exc_info=True)
+```
+
+## Troubleshooting
+
+| Issue | Cause | Fix |
+|-------|-------|-----|
+| No contacts synced | Old watermark; empty inbox | `rm .watermark && python src/main.py` |
+| Duplicate contacts | Email matches multiple Outlook items | Contacts matched by email; check for duplicates in Outlook |
+| Missing fields in Monday | Contact already exists but fields empty | Tool only updates missing fields (preserves existing) |
+| "Unauthorized" error | Invalid credentials | Verify `AZURE_CLIENT_ID`, `REFRESH_TOKEN`, `MONDAY_API_KEY` in `.env` |
+| Sync hangs | Large inbox; pagination timeout | Reduce inbox size or check network stability |
 
 ## Contributing
 
-To contribute:
+Contributions welcome! To contribute:
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/my-feature`
+2. Create a feature branch (`git checkout -b feature/xyz`)
 3. Make changes and add tests
-4. Run tests: `pytest`
-5. Format code: `ruff format src/ tests/`
-6. Commit and push
-7. Open a pull request
+4. Run: `pytest`, `ruff format .`, `ruff check .`
+5. Commit with clear messages
+6. Open a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License — see [LICENSE](LICENSE) for details.
