@@ -1,6 +1,6 @@
 [![ci-tests](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/AlessioMartello/umbra-sync/actions/workflows/tests.yaml)
 
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/umbra-sync/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/umbra-sync)
+[![codecov](https://codecov.io/github/alessiomartello/umbra-sync/graph/badge.svg?token=3OXO8DRNXY)](https://codecov.io/github/alessiomartello/umbra-sync)
 
 # Umbra Sync
 

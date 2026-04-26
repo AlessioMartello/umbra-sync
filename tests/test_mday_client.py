@@ -319,7 +319,14 @@ class TestGetExistingContacts:
                 "column_values": [
                     {"id": "email", "text": "alice@example.com"},
                 ],
-            }
+            },
+            {
+                "id": "2",
+                "name": "John",
+                "column_values": [
+                    {"id": "email", "text": "john@doe.com"},
+                ],
+            },
         ]
         respx.post(MONDAY_URL).mock(
             return_value=httpx.Response(
@@ -342,6 +349,7 @@ class TestGetExistingContacts:
         result = await client.get_existing_contacts()
 
         assert "alice@example.com" in result
+        assert "john@doe.com" in result
         assert result["alice@example.com"].name == "Alice"
 
 
