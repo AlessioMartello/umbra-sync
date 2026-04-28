@@ -5,7 +5,7 @@
 
 > Automatically sync contacts from Outlook to Monday.com — no manual copying required.
 
-**Umbra Sync** bridges Microsoft Outlook and Monday.com by automatically extracting contact details from your emails (name, phone, LinkedIn, address, job title) and syncing them to a Monday.com board. Run it once to bootstrap your contacts, or schedule it as a recurring task to keep your database current.
+**Umbra Sync** bridges Microsoft Outlook and Monday.com by automatically extracting contact details from your emails using regex and NLP (Groq)  — capturing name, phone, LinkedIn, address, and job title from both text and image signatures — then syncing them to a Monday.com board.
 
 ## Why This Exists
 
@@ -50,6 +50,7 @@ The workflow is incremental: Umbra Sync remembers the last sync time and only pr
 | **Retry Logic** | tenacity | Exponential backoff for transient failures |
 | **Testing** | pytest + respx | Fast unit tests with mocked HTTP responses |
 | **Tooling** | uv + mise | Reproducible dev environment; fast installs |
+| **NLP Extraction** | Groq API (`llama-3.3-70b-versatile`) | Free tier sufficient; extracts name, job title, address from unstructured signature text |
 
 ### Code Organization
 

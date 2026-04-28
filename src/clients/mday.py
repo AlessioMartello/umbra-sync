@@ -166,9 +166,13 @@ class MondayClient:
 
     async def update_contact(self, monday_id: str, fields: dict) -> None:
         """Update existing Monday contact, matching on ID"""
-        translated_monday_fields = {
-            self.FIELD_TO_COLUMN_ID[field]: value for field, value in fields.items()
-        }
+        translated_monday_fields = {}
+        for field, value in fields.items():
+            col_id = self.FIELD_TO_COLUMN_ID[field]
+            # Sanitize phone values: ensure they're strings, not structured objects
+            if col_id == self.COL_PHONE and isinstance(value, dict):
+                value = value.get("phone") or ""
+            translated_monday_fields[col_id] = value
         query = """
         mutation ($boardId: ID!, $itemId: ID!, $columnValues: JSON!) {
             change_multiple_column_values(

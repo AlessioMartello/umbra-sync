@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 
 from utils.data_models import Contact
 from utils.logger import get_logger
@@ -37,7 +38,7 @@ def filter_inbox(inbox_data: list, trusted_recipients: set[str]) -> list[dict]:
 
 def get_sent_recipient_emails(sent_data: list) -> set[str]:
     """Returns the email addresses of contacts that have been sent an email"""
-    logger.info(f"Getting known sender email addresses")
+    logger.info("Getting known sender email addresses")
 
     _check_list(sent_data)
 
@@ -64,26 +65,42 @@ def _sort_inbox(inbox_data: list[dict]):
     return sorted(inbox_data, key=lambda x: x.get("receivedDateTime", ""))
 
 
-def deduplicate_inbox(inbox_data: list[dict]) -> list[dict]:
-    """Returns the latest email only from each sender"""
+def deduplicate_inbox(inbox_data: list[dict], since: datetime = None) -> list[dict]:
+    """Group emails by sender. Keep more on initial load, fewer on normal runs.
+
+    Returns all emails but grouped — each sender's recent emails are preserved.
+    """
     _check_list(inbox_data)
 
     sorted_emails = _sort_inbox(inbox_data)
-    logger.info("Deduplicating inbox items per sender")
-    logger.info(f"Before deduplication: {len(inbox_data)} emails")
 
-    deduplicated_dict = {}
+    # Detect initial load: if watermark is > 30 days old
+    is_initial_load = False
+    if since:
+        age = datetime.now(timezone.utc) - since
+        is_initial_load = age.days > 30
 
+    keep_per_sender = 10 if is_initial_load else 3
+
+    logger.info(
+        f"Deduplicating inbox (initial_load={is_initial_load}, keep_per_sender={keep_per_sender})"
+    )
+    logger.info(f"Before: {len(inbox_data)} emails")
+
+    grouped = {}
     for msg in sorted_emails:
         sender_email = _get_email_address(msg)
         if sender_email:
-            deduplicated_dict[sender_email] = msg
+            if sender_email not in grouped:
+                grouped[sender_email] = []
+            if len(grouped[sender_email]) < keep_per_sender:
+                grouped[sender_email].append(msg)
         else:
-            logger.warning(f"Skipping email {msg} during deduplication")
+            logger.warning("Skipping email with no sender during deduplication")
 
-    deduplicated_items = list(deduplicated_dict.values())
-    logger.info(f"After deduplication: {len(deduplicated_items)} emails")
-    return deduplicated_items
+    result = [email for emails in grouped.values() for email in emails]
+    logger.info(f"After: {len(result)} emails from {len(grouped)} senders")
+    return result
 
 
 def parse_email_to_contact(email: dict) -> Contact:
@@ -104,7 +121,12 @@ def parse_email_to_contact(email: dict) -> Contact:
     linkedin = _look_for_linkedin_address(email_body)
 
     ## NLP extraction
-    nlp_extracted = _nlp_signature_contact_extraction(email_body, email_address)
+    if len(email_body) < 20:
+        logger.info("Email body too short for NLP extraction, skipping")
+        nlp_extracted = {}
+    else:
+        nlp_extracted = _nlp_signature_contact_extraction(email_body, email_address)
+
     if nlp_extracted:
         name = name or nlp_extracted.get("name")
         phone = phone or nlp_extracted.get("phone")
@@ -122,6 +144,48 @@ def parse_email_to_contact(email: dict) -> Contact:
         website=website,
         address=address,
     )
+
+
+def merge_contacts_from_emails(emails: list[dict]) -> Contact:
+    """Extract contacts from multiple emails and merge, prioritizing newest data.
+
+    Most recent email is the base; older emails fill in missing fields.
+    Returns partial contact if some extractions fail, but at least gets email address.
+    """
+    if not emails:
+        raise ValueError("No emails provided for merging")
+
+    contacts = []
+    for email in emails:
+        try:
+            c = parse_email_to_contact(email)
+            contacts.append(c)
+        except Exception as e:
+            logger.debug(f"Failed to extract contact from email: {e}")
+
+    if not contacts:
+        # Fallback: create minimal contact from email headers if extraction failed
+        logger.warning(
+            "No extractable contacts from email batch; creating minimal contact from headers"
+        )
+        email_address = _get_email_address(emails[0])
+        name = _get_name(emails[0]) or email_address.split("@")[0]
+        return Contact(email_address=email_address, name=name)
+
+    # Start with newest contact, fill gaps from older ones
+    merged = contacts[-1]
+    logger.debug(
+        f"Merging {len(contacts)} contacts for {merged.email_address}; base email #{len(contacts)} (newest)"
+    )
+
+    for contact in reversed(contacts[:-1]):
+        for field in ["phone", "linkedin", "address", "website", "job_title"]:
+            if not getattr(merged, field) and getattr(contact, field):
+                new_value = getattr(contact, field)
+                setattr(merged, field, new_value)
+                logger.debug(f"  Filled {field}: {new_value} (from older email)")
+
+    return merged
 
 
 def _check_list(data: list) -> None:

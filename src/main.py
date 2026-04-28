@@ -70,7 +70,7 @@ async def main(dry_run_mode: bool = False) -> None:
 
         trusted_email_addresses = transforms.get_sent_recipient_emails(sent)
         filtered_inbox = transforms.filter_inbox(inbox, trusted_email_addresses)
-        deduplicated_inbox = transforms.deduplicate_inbox(filtered_inbox)
+        deduplicated_inbox = transforms.deduplicate_inbox(filtered_inbox, since=since)
 
         to_create, to_update, skipped = [], [], []
 
@@ -78,13 +78,26 @@ async def main(dry_run_mode: bool = False) -> None:
             logger.info(
                 f"Preparing data for synchronisation with Monday.com ({len(deduplicated_inbox)} items to process)"
             )
+
+            # Group emails by sender and merge per-sender contacts
+            emails_by_sender = {}
+            for email in deduplicated_inbox:
+                sender = transforms._get_email_address(email)
+                if sender not in emails_by_sender:
+                    emails_by_sender[sender] = []
+                emails_by_sender[sender].append(email)
+
+            logger.info(f"Processing {len(emails_by_sender)} unique senders")
+
             async with MondayClient(API_KEY, MONDAY_BOARD_ID) as mday:
                 mday_contacts = await mday.get_existing_contacts()
 
-                for email in deduplicated_inbox:
+                for email_list in emails_by_sender.items():
                     outlook_contact: Optional[Contact] = None
                     try:
-                        outlook_contact = transforms.parse_email_to_contact(email)
+                        outlook_contact = transforms.merge_contacts_from_emails(
+                            email_list
+                        )
 
                         # Matching logic on email
                         existing_mday_contact = mday_contacts.get(
